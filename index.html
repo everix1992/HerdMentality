@@ -307,27 +307,15 @@ const EXAMPLES = [
   'Name something you always forget to pack.'
 ];
 
-/* ---------- ICE: Google STUN + Open Relay TURN (time-limited creds from the public static secret) ---------- */
+/* ---------- ICE servers ----------
+   STUN is enough for most home wifi and phone networks. If a friend on a strict network
+   (some mobile carriers, offices) can never connect, add TURN servers here. A free Metered
+   account (metered.ca, 20 GB/month) gives you an iceServers array to paste into TURN_SERVERS. */
+const TURN_SERVERS = [
+  // { urls: 'turn:global.relay.metered.ca:80', username: '...', credential: '...' },
+];
 async function buildIceServers(){
-  const servers = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
-  try {
-    if (crypto && crypto.subtle) {
-      const enc = new TextEncoder();
-      const username = (Math.floor(Date.now() / 1000) + 24 * 3600) + ':herd';
-      const key = await crypto.subtle.importKey('raw', enc.encode('openrelayprojectsecret'), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-      const sig = await crypto.subtle.sign('HMAC', key, enc.encode(username));
-      const credential = btoa(String.fromCharCode(...new Uint8Array(sig)));
-      servers.push({
-        urls: ['turn:staticauth.openrelay.metered.ca:80', 'turn:staticauth.openrelay.metered.ca:443', 'turn:staticauth.openrelay.metered.ca:443?transport=tcp', 'turns:staticauth.openrelay.metered.ca:443?transport=tcp'],
-        username, credential
-      });
-    }
-  } catch (e) { console.warn('TURN credential generation failed; continuing with STUN only', e); }
-  servers.push({
-    urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
-    username: 'openrelayproject', credential: 'openrelayproject'
-  });
-  return servers;
+  return [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }, ...TURN_SERVERS];
 }
 let peerConfig = null;
 async function getPeerOptions(){
