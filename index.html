@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Herd Mentality</title>
+<meta name="description" content="Play Herd Mentality with friends on your phones. Host a room, share the code, collect everyone's answers, score the herd.">
+<meta name="theme-color" content="#2f6b3a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23ff5fa2'/%3E%3Ctext x='32' y='42' font-size='34' text-anchor='middle'%3E%F0%9F%90%84%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout concept: a cream paddock under a green sky band; the pink cow is the only loud color. */
+:root{
+  --grass:#2f6b3a; --grass-deep:#214d2a; --grass-soft:#e3efe2;
+  --cream:#faf5e9; --card:#ffffff; --ink:#1d1a16; --muted:#6c665b; --line:#e4dbc7;
+  --pink:#ff5fa2; --pink-deep:#d8367c; --pink-soft:#ffe3ef;
+  --ok:#2f8f4e; --warn:#b7701a; --bad:#c0392b;
+  --display:'Fraunces',Georgia,'Times New Roman',serif;
+  --body:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --radius:18px; --shadow:0 10px 30px rgba(33,77,42,.10);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  -webkit-text-size-adjust:100%;}
+[hidden]{display:none!important}
+button,input,textarea{font:inherit}
+h1,h2,h3{font-family:var(--display);line-height:1.1;margin:0;text-wrap:balance;font-weight:800}
+p{margin:0}
+a{color:var(--grass-deep)}
+.sr{position:absolute;left:-9999px}
+
+/* Top band */
+.band{background:var(--grass);color:#fff;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.band-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.25rem;letter-spacing:.2px}
+.brand .cow{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--pink);font-size:20px}
+.band .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:.95rem}
+.chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 10px;font-size:.9rem;font-weight:700}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:#9bd3a6}
+.chip .dot.off{background:#f3c25b}
+.chip .dot.bad{background:#ff8a80}
+
+main{max-width:1100px;margin:0 auto;padding-block:22px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+
+/* Cards and buttons */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:1.4rem;margin-bottom:6px}
+.sub{color:var(--muted);font-size:.95rem}
+.stack{display:grid;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grow{flex:1 1 160px;min-width:0}
+label.field{display:grid;gap:6px;font-weight:700;font-size:.9rem;color:var(--muted)}
+input[type=text],textarea{width:100%;border:2px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;color:var(--ink);outline:none;min-width:0}
+input[type=text]:focus,textarea:focus{border-color:var(--grass)}
+textarea{resize:vertical;min-height:72px}
+.code-input{text-transform:uppercase;letter-spacing:.35em;font-family:var(--display);font-weight:800;font-size:1.6rem;text-align:center}
+.btn{appearance:none;border:0;border-radius:999px;padding:12px 20px;font-weight:800;cursor:pointer;background:var(--grass);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s ease,background .15s ease;white-space:nowrap}
+.btn:hover{background:var(--grass-deep)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.pink{background:var(--pink)}
+.btn.pink:hover{background:var(--pink-deep)}
+.btn.ghost{background:transparent;color:var(--grass-deep);border:2px solid var(--line)}
+.btn.ghost:hover{background:var(--grass-soft)}
+.btn.danger{background:transparent;color:var(--bad);border:2px solid var(--line)}
+.btn.danger:hover{background:#fdeceb}
+.btn.sm{padding:7px 12px;font-size:.88rem}
+.btn.big{padding:16px 24px;font-size:1.1rem;width:100%}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,.group:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.msg{border-radius:12px;padding:10px 14px;font-weight:700;font-size:.95rem}
+.msg.bad{background:#fdeceb;color:var(--bad)}
+.msg.ok{background:var(--grass-soft);color:var(--grass-deep)}
+.msg.warn{background:#fff3df;color:var(--warn)}
+.msg.pink{background:var(--pink-soft);color:var(--pink-deep)}
+
+/* Home */
+.hero{display:grid;gap:8px;margin-bottom:22px}
+.hero h1{font-size:clamp(2.2rem,6vw,3.6rem)}
+.hero p{max-width:60ch;color:var(--muted);font-size:1.05rem}
+.home-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+details.rules{margin-top:22px}
+details.rules summary{cursor:pointer;font-family:var(--display);font-weight:800;font-size:1.15rem;padding:6px 0}
+details.rules ul{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;max-width:70ch}
+details.rules .src{margin-top:10px;font-size:.9rem;color:var(--muted)}
+
+/* Host layout */
+.host-grid{display:grid;gap:18px;grid-template-columns:1fr}
+@media(min-width:900px){.host-grid{grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);align-items:start}}
+.bigcode{font-family:var(--display);font-weight:800;font-size:clamp(3rem,10vw,5rem);letter-spacing:.25em;line-height:1;color:var(--grass-deep);text-align:center;padding:12px 0 4px}
+.linkbox{display:flex;gap:8px;align-items:center;background:var(--grass-soft);border-radius:12px;padding:8px 8px 8px 14px;flex-wrap:wrap}
+.linkbox code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem;word-break:break-all;flex:1 1 200px;min-width:0}
+.question{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,4vw,2.2rem);line-height:1.2;padding:6px 0}
+.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.75rem;font-weight:800;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.pchip{display:inline-flex;align-items:center;gap:7px;border:2px solid var(--line);border-radius:999px;padding:5px 12px;font-weight:700;font-size:.92rem;background:#fff}
+.pchip.done{border-color:var(--ok);background:var(--grass-soft)}
+.pchip.offline{opacity:.55;border-style:dashed}
+.pchip .tick{font-size:.85rem;color:var(--ok)}
+.progress{height:10px;background:var(--grass-soft);border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--grass);width:0;transition:width .3s ease}
+
+/* Reveal groups */
+.groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.group{background:#fff;border:2px solid var(--line);border-radius:14px;padding:14px;text-align:left;cursor:pointer;display:grid;gap:8px;min-width:0;position:relative;font:inherit;color:inherit}
+.group:hover{border-color:var(--grass)}
+.group.selected{border-color:var(--pink);box-shadow:0 0 0 4px var(--pink-soft)}
+.group.herd{border-color:var(--grass);background:var(--grass-soft)}
+.group.lonely{border-color:var(--pink);background:var(--pink-soft)}
+.group.mine{box-shadow:inset 0 0 0 3px #ffd54f}
+.group .ans{font-family:var(--display);font-weight:800;font-size:1.25rem;line-height:1.15;overflow-wrap:anywhere}
+.group .count{position:absolute;top:10px;right:10px;background:var(--grass-deep);color:#fff;border-radius:999px;min-width:28px;height:28px;display:grid;place-items:center;font-weight:800;font-size:.9rem;padding:0 8px}
+.group.lonely .count{background:var(--pink-deep)}
+.group .who{font-size:.9rem;color:var(--muted);overflow-wrap:anywhere}
+.group .tag{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.group.herd .tag{color:var(--grass-deep)}
+.group.lonely .tag{color:var(--pink-deep)}
+.group.static{cursor:default}
+
+/* Scoreboard */
+.score{display:grid;gap:8px}
+.srow{display:grid;grid-template-columns:1fr auto;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.srow.me{border-color:#ffd54f;background:#fffbe6}
+.srow.winner{border-color:var(--ok);background:var(--grass-soft)}
+.srow .nm{font-weight:800;display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
+.srow .nm .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}
+.srow .nm .dot.off{background:#c9c2b2}
+.srow .cows{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;font-weight:800}
+.srow .cows .glyphs{letter-spacing:-2px;font-size:1rem;max-width:140px;overflow:hidden;white-space:nowrap}
+.pinkbadge{display:inline-flex;align-items:center;gap:4px;background:var(--pink);color:#fff;border-radius:999px;padding:2px 9px;font-size:.78rem;font-weight:800}
+.srow .ctl{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.mini{appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 9px;font-weight:800;cursor:pointer;font-size:.85rem;color:var(--ink)}
+.mini:hover{background:var(--grass-soft)}
+.mini.on{background:var(--pink-soft);border-color:var(--pink)}
+.target{font-size:.9rem;color:var(--muted)}
+
+/* Player */
+.player-wrap{max-width:560px;margin:0 auto}
+.answer-input{font-size:1.25rem;padding:16px}
+.sent{background:var(--grass-soft);border-radius:14px;padding:16px;display:grid;gap:8px}
+.sent .ans{font-family:var(--display);font-weight:800;font-size:1.5rem;overflow-wrap:anywhere}
+.banner{background:linear-gradient(135deg,var(--pink) 0%,#ff9ac6 100%);color:#fff;border-radius:var(--radius);padding:22px;text-align:center;display:grid;gap:6px}
+.banner h2{font-size:1.8rem;color:#fff}
+.history{display:grid;gap:8px}
+.hrow{border-top:1px dashed var(--line);padding-top:8px;font-size:.92rem}
+.hrow b{font-family:var(--display)}
+.footer{margin-top:28px;text-align:center;color:var(--muted);font-size:.85rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="band-inner">
+    <div class="brand"><span class="cow" aria-hidden="true">🐄</span><span>Herd Mentality</span></div>
+    <div class="meta" id="bandMeta"></div>
+  </div>
+</div>
+
+<main>
+
+<!-- ============ HOME ============ -->
+<section id="view-home">
+  <div class="hero">
+    <h1>Think like the herd.</h1>
+    <p>One phone each, no pens. The host opens a paddock and reads a question, everyone types a secret answer, and the host reveals and scores once the whole herd is in.</p>
+  </div>
+
+  <div class="home-grid">
+    <div class="card stack">
+      <div>
+        <h2>Host a game</h2>
+        <p class="sub">You read the questions and run the scoring. Keep this tab open: your browser is the game server.</p>
+      </div>
+      <div id="resumeBox" hidden>
+        <button class="btn big" id="resumeBtn" type="button">Resume game <span id="resumeCode"></span></button>
+        <p class="sub" style="margin-top:8px">Players reconnect automatically. Or start a fresh room below.</p>
+      </div>
+      <form id="hostForm" class="stack">
+        <label class="field">Room code
+          <input type="text" id="hostCode" class="code-input" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" required pattern="[A-Za-z0-9]{3,4}" title="3 or 4 letters or digits">
+        </label>
+        <div class="row">
+          <button class="btn pink" type="submit" id="hostBtn">Open the paddock</button>
+          <button class="btn ghost" type="button" id="shuffleCode">New code</button>
+        </div>
+        <div id="hostMsg" class="msg bad" hidden></div>
+      </form>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <h2>Join a game</h2>
+        <p class="sub">Type the code on the host's screen and your name.</p>
+      </div>
+      <form id="joinForm" class="stack">
+        <label class="field">Room code
+          <input type="text" id="joinCode" class="code-input" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" required pattern="[A-Za-z0-9]{3,4}" title="3 or 4 letters or digits">
+        </label>
+        <label class="field">Your name
+          <input type="text" id="joinName" maxlength="20" autocomplete="nickname" required placeholder="What should the herd call you?">
+        </label>
+        <button class="btn big" type="submit" id="joinBtn">Join the herd</button>
+        <div id="joinMsg" class="msg bad" hidden></div>
+      </form>
+    </div>
+  </div>
+
+  <details class="rules" id="rulesHome">
+    <summary>How Herd Mentality is played</summary>
+    <ul>
+      <li><b>4 to 20 players.</b> One person is the Question Wrangler (the host). They read a question out loud and run the scoring. The host can play too.</li>
+      <li><b>Everyone answers in secret.</b> The aim is not to be right or clever. The aim is to give the answer most other people give.</li>
+      <li><b>The herd gets cows.</b> Everyone who gave the most popular answer earns one cow. If two or more answers tie for most popular, nobody gets a cow that round.</li>
+      <li><b>The Pink Cow.</b> If exactly one player gave an answer nobody else matched, they take the Pink Cow. If two or more players are alone, the Pink Cow stays where it is.</li>
+      <li><b>Pink Cow curse.</b> Whoever holds the Pink Cow keeps collecting cows but cannot win. It only moves when someone else becomes the sole odd one out.</li>
+      <li><b>Winning.</b> The first player to reach 8 cows wins, as long as they are not holding the Pink Cow. If two or more players reach 8 in the same round, play on to 9.</li>
+    </ul>
+    <p class="src">Rules summarised from the publisher's guide at <a href="https://bigpotato.com/blogs/how-to-play/herd-mentality" target="_blank" rel="noopener">bigpotato.com</a> and the write-up at <a href="https://www.geekyhobbies.com/herd-mentality-board-game-rules/" target="_blank" rel="noopener">geekyhobbies.com</a>. Questions come from your own deck or your own head; this site does not ship the card text.</p>
+  </details>
+</section>
+
+<!-- ============ HOST ============ -->
+<section id="view-host" hidden>
+  <div id="winnerBanner" class="banner" hidden style="margin-bottom:18px"></div>
+  <div class="host-grid">
+    <div class="stack" id="hostMain"></div>
+    <aside class="stack">
+      <div class="card stack">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Paddock</h2>
+          <span class="target" id="targetNote"></span>
+        </div>
+        <div class="score" id="scoreboard"></div>
+        <div class="row">
+          <button class="btn ghost sm" type="button" id="newGameBtn">New game (reset cows)</button>
+          <button class="btn danger sm" type="button" id="endBtn">End game</button>
+        </div>
+        <div id="endConfirm" class="row" hidden>
+          <span class="sub">Close the room for everyone?</span>
+          <button class="btn danger sm" type="button" id="endYes">Yes, end it</button>
+          <button class="btn ghost sm" type="button" id="endNo">Keep playing</button>
+        </div>
+      </div>
+      <div class="card stack" id="historyCard" hidden>
+        <h2 style="font-size:1.15rem">Earlier rounds</h2>
+        <div class="history" id="history"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ PLAYER ============ -->
+<section id="view-player" hidden>
+  <div class="player-wrap stack" id="playerMain"></div>
+</section>
+
+<p class="footer">Herd Mentality is a Big Potato game. This is an unofficial fan-made answer sheet for playing over video call.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k){ try { localStorage.removeItem(k); } catch {} }
+};
+const PREFIX = 'herd-';
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const randomCode = () => Array.from({length:4}, () => CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)]).join('');
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+const normalize = s => String(s || '').toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+const joinNames = names => names.length <= 1 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+const cowGlyphs = n => n <= 0 ? '' : '🐄'.repeat(Math.min(n, 9)) + (n > 9 ? ' +' + (n - 9) : '');
+const siteLink = code => location.origin + location.pathname + '?code=' + code;
+
+const EXAMPLES = [
+  'Name a topping that belongs on a pizza.',
+  "Name something you'd find in a car's glovebox.",
+  'Name a famous bridge.',
+  "Name a food that's better the next day.",
+  "Name a sport that's boring to watch.",
+  'Name a word that rhymes with "moon".',
+  "Name a job that sounds fun but probably isn't.",
+  'Name something people lie about.',
+  'Name a board game everyone seems to own.',
+  'Name an animal that would make a terrible pet.',
+  'Name a song everyone knows the words to.',
+  "Name something you'd pack for a beach day.",
+  'Name an overrated holiday.',
+  'Name a vegetable kids refuse to eat.',
+  "Name a superpower you'd actually want.",
+  "Name a city you'd visit just for the food.",
+  "Name something that's always in the lost-and-found.",
+  'Name a breakfast cereal.',
+  'Name a movie everyone has seen.',
+  'Name something you always forget to pack.'
+];
+
+/* ---------- ICE: Google STUN + Open Relay TURN (time-limited creds from the public static secret) ---------- */
+async function buildIceServers(){
+  const servers = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+  try {
+    if (crypto && crypto.subtle) {
+      const enc = new TextEncoder();
+      const username = (Math.floor(Date.now() / 1000) + 24 * 3600) + ':herd';
+      const key = await crypto.subtle.importKey('raw', enc.encode('openrelayprojectsecret'), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', key, enc.encode(username));
+      const credential = btoa(String.fromCharCode(...new Uint8Array(sig)));
+      servers.push({
+        urls: ['turn:staticauth.openrelay.metered.ca:80', 'turn:staticauth.openrelay.metered.ca:443', 'turn:staticauth.openrelay.metered.ca:443?transport=tcp', 'turns:staticauth.openrelay.metered.ca:443?transport=tcp'],
+        username, credential
+      });
+    }
+  } catch (e) { console.warn('TURN credential generation failed; continuing with STUN only', e); }
+  servers.push({
+    urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
+    username: 'openrelayproject', credential: 'openrelayproject'
+  });
+  return servers;
+}
+let peerConfig = null;
+async function getPeerOptions(){
+  if (!peerConfig) peerConfig = { iceServers: await buildIceServers(), sdpSemantics: 'unified-plan' };
+  return { config: peerConfig, debug: 1 };
+}
+
+/* ---------- views ---------- */
+const views = { home: $('#view-home'), host: $('#view-host'), player: $('#view-player') };
+function show(name){ for (const k in views) views[k].hidden = k !== name; window.scrollTo(0, 0); }
+function setBand(html){ $('#bandMeta').innerHTML = html; }
+
+/* ====================================================================
+   HOST
+   ==================================================================== */
+const Host = {
+  S: null,            // persisted game state
+  peer: null,
+  conns: new Map(),   // pid -> DataConnection
+  online: new Set(),  // pids currently connected
+  selectedGroup: -1,
+  resumeStart: 0,
+  saveTimer: null
+};
+const HOST_PID = 'host';
+
+function freshState(code){
+  return { code, phase: 'lobby', round: 0, question: '', players: {}, answers: {}, groups: null, scored: false,
+           lastAwards: null, pink: null, target: 8, winner: null, history: [], hostPlays: false, hostName: '', draft: '' };
+}
+
+function hostSave(){ if (Host.S) LS.set('herd-host-state', Host.S); }
+function commit(){ hostSave(); renderHost(); broadcast(); }
+
+async function hostStart(code, resume){
+  const S = Host.S;
+  Host.resumeStart = Host.resumeStart || Date.now();
+  const opts = await getPeerOptions();
+  if (Host.peer && !Host.peer.destroyed) { try { Host.peer.destroy(); } catch {} }
+  const peer = new Peer(PREFIX + code, opts);
+  Host.peer = peer;
+  setBand(`<span class="chip">Room <b>${esc(code)}</b></span><span class="chip" id="hostConn"><i class="dot off"></i> Connecting…</span>`);
+  peer.on('open', () => {
+    Host.resumeStart = 0;
+    const c = $('#hostConn'); if (c) c.innerHTML = '<i class="dot"></i> Online';
+    show('host'); renderHost();
+  });
+  peer.on('connection', conn => hostAccept(conn));
+  peer.on('disconnected', () => {
+    const c = $('#hostConn'); if (c) c.innerHTML = '<i class="dot off"></i> Reconnecting…';
+    setTimeout(() => { if (Host.peer === peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch {} } }, 1500);
+  });
+  peer.on('error', err => {
+    console.warn('host peer error', err);
+    if (err.type === 'unavailable-id') {
+      if (resume && Date.now() - Host.resumeStart < 45000) {
+        setBand(`<span class="chip">Room <b>${esc(code)}</b></span><span class="chip"><i class="dot off"></i> Reclaiming room…</span>`);
+        setTimeout(() => hostStart(code, true), 3000);
+      } else {
+        Host.resumeStart = 0;
+        showHostError(resume ? `Room ${code} is still held by another tab. Close it and try again, or start a new room.` : `Room ${code} is already in use. Pick another code.`);
+      }
+    } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+      const c = $('#hostConn'); if (c) c.innerHTML = '<i class="dot bad"></i> Connection trouble';
+      if (!peer.destroyed && peer.disconnected) setTimeout(() => { try { peer.reconnect(); } catch {} }, 3000);
+    } else if (err.type === 'browser-incompatible') {
+      showHostError('This browser cannot host (no WebRTC). Try Chrome, Edge, Safari or Firefox.');
+    }
+  });
+}
+function showHostError(text){
+  show('home'); setBand('');
+  const m = $('#hostMsg'); m.textContent = text; m.hidden = false;
+}
+
+function hostAccept(conn){
+  conn.on('data', msg => {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.t === 'hello') {
+      const pid = String(msg.pid || '').slice(0, 40); const name = String(msg.name || '').trim().slice(0, 20) || 'Anonymous';
+      if (!pid || pid === HOST_PID) return;
+      const S = Host.S;
+      const old = Host.conns.get(pid);
+      if (old && old !== conn) { try { old.close(); } catch {} }
+      Host.conns.set(pid, conn); Host.online.add(pid); conn._pid = pid;
+      if (!S.players[pid]) S.players[pid] = { name, cows: 0, joinedAt: Date.now() };
+      else S.players[pid].name = name;
+      commit();
+    } else if (msg.t === 'answer') {
+      const pid = conn._pid; const S = Host.S;
+      if (!pid || !S.players[pid]) return;
+      if (S.phase !== 'answering' || msg.round !== S.round) { send(conn, stateFor(pid)); return; }
+      const text = String(msg.text || '').trim().slice(0, 80);
+      if (!text) delete S.answers[pid]; else S.answers[pid] = { text, at: S.answers[pid]?.at || Date.now() };
+      commit();
+    }
+  });
+  conn.on('close', () => {
+    const pid = conn._pid;
+    if (pid && Host.conns.get(pid) === conn) { Host.conns.delete(pid); Host.online.delete(pid); renderHost(); broadcast(); }
+  });
+  conn.on('error', e => console.warn('conn error', e));
+}
+function send(conn, msg){ try { if (conn && conn.open) conn.send(msg); } catch (e) { console.warn(e); } }
+function broadcast(){ for (const [pid, conn] of Host.conns) send(conn, stateFor(pid)); }
+
+function stateFor(pid){
+  const S = Host.S;
+  const players = playerList();
+  const out = { t: 'state', code: S.code, phase: S.phase, round: S.round, question: S.question, players, pink: S.pink, target: S.target, winner: S.winner,
+    you: { id: pid, name: S.players[pid]?.name || '', answered: !!S.answers[pid], answer: S.answers[pid]?.text || '' } };
+  if (S.phase === 'reveal') { out.groups = S.groups.map(g => ({ text: g.text, pids: g.pids })); out.scored = S.scored; out.awards = S.lastAwards; }
+  return out;
+}
+function playerList(){
+  const S = Host.S;
+  return Object.entries(S.players)
+    .sort((a, b) => a[1].joinedAt - b[1].joinedAt)
+    .map(([id, p]) => ({ id, name: p.name, cows: p.cows, answered: !!S.answers[id], online: id === HOST_PID ? true : Host.online.has(id) }));
+}
+
+/* --- grouping and scoring --- */
+function autoGroups(){
+  const S = Host.S; const map = new Map();
+  const entries = Object.entries(S.answers).filter(([pid]) => S.players[pid]).sort((a, b) => a[1].at - b[1].at);
+  for (const [pid, a] of entries) {
+    const k = normalize(a.text) || a.text.toLowerCase();
+    if (!map.has(k)) map.set(k, { text: a.text, pids: [] });
+    map.get(k).pids.push(pid);
+  }
+  return [...map.values()].sort((a, b) => b.pids.length - a.pids.length);
+}
+function computeAwards(groups){
+  const S = Host.S;
+  const sizes = groups.map(g => g.pids.length);
+  const max = sizes.length ? Math.max(...sizes) : 0;
+  const tops = groups.filter(g => g.pids.length === max);
+  const herd = (max >= 2 && tops.length === 1) ? tops[0] : null;
+  const tie = max >= 2 && tops.length > 1;
+  const singles = groups.filter(g => g.pids.length === 1);
+  const lonely = singles.length === 1 ? singles[0].pids[0] : null;
+  return { herdText: herd ? herd.text : null, cowPids: herd ? herd.pids : [], tie, allUnique: max === 1 && groups.length > 1, lonely, singlesCount: singles.length, pinkBefore: S.pink };
+}
+function applyAwards(){
+  const S = Host.S; if (S.phase !== 'reveal' || S.scored) return;
+  const aw = computeAwards(S.groups);
+  for (const pid of aw.cowPids) if (S.players[pid]) S.players[pid].cows += 1;
+  if (aw.lonely) S.pink = aw.lonely;
+  S.lastAwards = aw; S.scored = true;
+  S.history.unshift({ round: S.round, question: S.question, herdText: aw.herdText, cowNames: aw.cowPids.map(p => S.players[p]?.name || '?'), pinkName: aw.lonely ? (S.players[aw.lonely]?.name || '?') : null, tie: aw.tie });
+  checkWin(); commit();
+}
+function checkWin(){
+  const S = Host.S;
+  const eligible = () => Object.entries(S.players).filter(([pid, p]) => p.cows >= S.target && S.pink !== pid);
+  let guard = 0;
+  while (eligible().length > 1 && guard++ < 50) S.target += 1;
+  const e = eligible();
+  S.winner = e.length === 1 ? e[0][0] : null;
+}
+
+/* --- host actions --- */
+function askQuestion(q){
+  const S = Host.S; q = String(q || '').trim().slice(0, 200); if (!q) return;
+  S.round += 1; S.question = q; S.phase = 'answering'; S.answers = {}; S.groups = null; S.scored = false; S.lastAwards = null; S.draft = '';
+  Host.selectedGroup = -1; commit();
+}
+function reveal(){ const S = Host.S; if (S.phase !== 'answering') return; S.phase = 'reveal'; S.groups = autoGroups(); S.scored = false; Host.selectedGroup = -1; commit(); }
+function backToLobby(){ const S = Host.S; S.phase = 'lobby'; S.answers = {}; S.groups = null; S.scored = false; Host.selectedGroup = -1; commit(); }
+function cancelRound(){ const S = Host.S; S.round = Math.max(0, S.round - 1); S.draft = S.question; S.question = ''; backToLobby(); }
+function mergeGroups(i, j){
+  const S = Host.S; if (i === j || !S.groups[i] || !S.groups[j]) return;
+  S.groups[i].pids.push(...S.groups[j].pids); S.groups[i].merged = true; S.groups.splice(j, 1);
+  S.groups.sort((a, b) => b.pids.length - a.pids.length); Host.selectedGroup = -1; commit();
+}
+function removePlayer(pid){
+  const S = Host.S; const conn = Host.conns.get(pid);
+  if (conn) { send(conn, { t: 'removed' }); setTimeout(() => { try { conn.close(); } catch {} }, 300); }
+  Host.conns.delete(pid); Host.online.delete(pid); delete S.players[pid]; delete S.answers[pid];
+  if (S.pink === pid) S.pink = null;
+  if (S.groups) { for (const g of S.groups) g.pids = g.pids.filter(p => p !== pid); S.groups = S.groups.filter(g => g.pids.length); }
+  checkWin(); commit();
+}
+function endGame(){
+  for (const [, conn] of Host.conns) send(conn, { t: 'ended' });
+  setTimeout(() => { try { Host.peer?.destroy(); } catch {} }, 400);
+  Host.conns.clear(); Host.online.clear(); Host.S = null; LS.del('herd-host-state');
+  setBand(''); show('home'); renderHome();
+}
+function newGame(){
+  const S = Host.S;
+  for (const p of Object.values(S.players)) p.cows = 0;
+  S.pink = null; S.target = 8; S.winner = null; S.round = 0; S.history = []; S.question = ''; backToLobby();
+}
+
+/* --- host rendering --- */
+function renderHost(){
+  const S = Host.S; if (!S) return;
+  const main = $('#hostMain');
+  const players = playerList();
+  const link = siteLink(S.code);
+  const banner = $('#winnerBanner');
+  if (S.winner && S.players[S.winner]) {
+    banner.hidden = false;
+    banner.innerHTML = `<div class="eyebrow" style="color:#fff;opacity:.9">We have a winner</div><h2>🏆 ${esc(S.players[S.winner].name)} wins with ${S.players[S.winner].cows} cows!</h2><p>Keep playing for fun, or start a new game from the paddock.</p>`;
+  } else banner.hidden = true;
+
+  let html = '';
+  if (S.phase === 'lobby') {
+    const nextRound = S.round + 1;
+    html += `<div class="card stack">
+      <div><div class="eyebrow">${S.round === 0 ? 'Gather the herd' : 'Between rounds'}</div><h2>${S.round === 0 ? 'Share this code' : 'Ready for round ' + nextRound}</h2></div>
+      <div class="bigcode">${esc(S.code)}</div>
+      <div class="linkbox"><code id="joinLink">${esc(link)}</code><button class="btn sm" type="button" id="copyLink">Copy link</button></div>
+      <p class="sub">Friends open the link (or this site) and type the code with their name. ${players.length ? `<b>${players.length}</b> in the paddock.` : 'Nobody has joined yet.'}</p>
+      <div class="chips" id="lobbyChips">${players.map(p => `<span class="pchip ${p.online ? '' : 'offline'}">${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join('') || '<span class="sub">Waiting for players…</span>'}</div>
+    </div>
+    <div class="card stack">
+      <div><div class="eyebrow">Round ${nextRound}</div><h2>Ask the herd</h2><p class="sub">Read from your Herd Mentality deck, or type your own.</p></div>
+      <form id="askForm" class="stack">
+        <textarea id="questionInput" maxlength="200" placeholder="Name a topping that belongs on a pizza." required>${esc(S.draft || '')}</textarea>
+        <div class="row">
+          <button class="btn pink" type="submit">Send question to everyone</button>
+          <button class="btn ghost" type="button" id="surpriseBtn">Surprise me</button>
+        </div>
+      </form>
+      <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="hostPlays" ${S.hostPlays ? 'checked' : ''}> <span>I'm playing too</span>
+        <input type="text" id="hostName" maxlength="20" placeholder="Your name" value="${esc(S.hostName)}" style="flex:1 1 140px;max-width:220px" ${S.hostPlays ? '' : 'hidden'}></label>
+    </div>`;
+  } else if (S.phase === 'answering') {
+    const answerers = players.filter(p => p.id !== HOST_PID || S.hostPlays);
+    const done = answerers.filter(p => p.answered).length;
+    const pct = answerers.length ? Math.round(done / answerers.length * 100) : 0;
+    const allIn = answerers.length > 0 && done === answerers.length;
+    const mine = S.answers[HOST_PID]?.text || '';
+    html += `<div class="card stack">
+      <div class="eyebrow">Round ${S.round} · answers are hidden until you reveal</div>
+      <div class="question">${esc(S.question)}</div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <p class="sub"><b>${done}</b> of <b>${answerers.length}</b> answered${allIn ? '. Everyone is in!' : '.'}</p>
+      <div class="chips">${answerers.map(p => `<span class="pchip ${p.answered ? 'done' : ''} ${p.online ? '' : 'offline'}">${p.answered ? '<span class="tick">✓</span>' : '…'} ${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join('')}</div>
+      ${S.hostPlays ? `<form id="hostAnswerForm" class="row"><input type="text" id="hostAnswer" class="grow" maxlength="80" placeholder="Your answer" value="${esc(mine)}" autocomplete="off"><button class="btn" type="submit">${mine ? 'Update' : 'Lock in'}</button></form>` : ''}
+      <div class="row">
+        <button class="btn ${allIn ? 'pink' : ''}" type="button" id="revealBtn">Reveal answers${allIn ? '' : ' now'}</button>
+        <button class="btn ghost" type="button" id="cancelRoundBtn">Change question</button>
+      </div>
+    </div>`;
+  } else if (S.phase === 'reveal') {
+    const aw = S.scored ? S.lastAwards : computeAwards(S.groups);
+    const noAnswer = players.filter(p => (p.id !== HOST_PID || S.hostPlays) && !S.answers[p.id]);
+    html += `<div class="card stack">
+      <div class="eyebrow">Round ${S.round} · ${S.scored ? 'scored' : 'reveal'}</div>
+      <div class="question">${esc(S.question)}</div>
+      ${S.scored ? '' : '<p class="sub">Tap two answers to merge them if they mean the same thing. Then award the cows.</p>'}
+      <div class="groups">${S.groups.map((g, i) => {
+        const isHerd = aw.herdText !== null && g.pids.length === Math.max(...S.groups.map(x => x.pids.length)) && !aw.tie && g.pids.length >= 2 && S.groups.filter(x => x.pids.length === g.pids.length).length === 1;
+        const isLonely = aw.lonely && g.pids.length === 1 && g.pids[0] === aw.lonely;
+        const cls = ['group', S.scored ? 'static' : '', Host.selectedGroup === i ? 'selected' : '', isHerd ? 'herd' : '', isLonely ? 'lonely' : ''].join(' ');
+        const tag = isHerd ? '<div class="tag">The herd · +1 cow each</div>' : isLonely ? '<div class="tag">Odd one out · Pink Cow</div>' : '';
+        return `<button type="button" class="${cls}" data-g="${i}" ${S.scored ? 'disabled' : ''}><span class="count">${g.pids.length}</span><div class="ans">${esc(g.text)}</div><div class="who">${esc(joinNames(g.pids.map(p => S.players[p]?.name || '?')))}</div>${tag}</button>`;
+      }).join('') || '<p class="sub">No answers came in.</p>'}</div>
+      ${noAnswer.length ? `<p class="sub">No answer from ${esc(joinNames(noAnswer.map(p => p.name)))}.</p>` : ''}
+      <div class="stack" style="gap:8px">
+        ${aw.herdText !== null ? `<div class="msg ok">Herd: “${esc(aw.herdText)}” · ${esc(joinNames(aw.cowPids.map(p => S.players[p]?.name || '?')))} ${aw.cowPids.length === 1 ? 'gets' : 'each get'} a cow.</div>`
+          : aw.tie ? '<div class="msg warn">Two or more answers tie for biggest herd, so nobody gets a cow this round.</div>'
+          : aw.allUnique ? '<div class="msg warn">Everyone answered differently. No herd, no cows.</div>'
+          : (S.groups.length ? '<div class="msg warn">No herd big enough to score.</div>' : '')}
+        ${aw.lonely ? `<div class="msg pink">🐄 Pink Cow goes to ${esc(S.players[aw.lonely]?.name || '?')}, the only one with a unique answer.</div>`
+          : aw.singlesCount >= 2 ? `<div class="msg pink">${aw.singlesCount} players are alone, so the Pink Cow stays ${S.pink && S.players[S.pink] ? 'with ' + esc(S.players[S.pink].name) : 'in the paddock'}.</div>`
+          : (S.groups.length ? `<div class="msg pink">Nobody is alone. The Pink Cow stays ${S.pink && S.players[S.pink] ? 'with ' + esc(S.players[S.pink].name) : 'in the paddock'}.</div>` : '')}
+      </div>
+      <div class="row">
+        ${S.scored ? '<button class="btn pink" type="button" id="nextBtn">Next question</button>'
+          : `<button class="btn pink" type="button" id="awardBtn">Award cows</button>
+             <button class="btn ghost" type="button" id="skipScoreBtn">Next question without scoring</button>
+             <button class="btn ghost sm" type="button" id="resetGroupsBtn" ${S.groups.some(g => g.merged) ? '' : 'disabled'}>Undo merges</button>`}
+      </div>
+    </div>`;
+  }
+  main.innerHTML = html;
+
+  // scoreboard
+  $('#targetNote').textContent = `First to ${S.target} cows wins`;
+  $('#scoreboard').innerHTML = players.length ? players.map(p => `
+    <div class="srow ${S.winner === p.id ? 'winner' : ''}">
+      <div class="nm"><i class="dot ${p.online ? '' : 'off'}" title="${p.online ? 'connected' : 'disconnected'}"></i><span>${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>${S.pink === p.id ? '<span class="pinkbadge">🐄 pink</span>' : ''}</div>
+      <div class="cows"><span class="glyphs" aria-hidden="true">${cowGlyphs(p.cows)}</span><span>${p.cows}</span></div>
+      <div class="ctl">
+        <button class="mini" data-act="minus" data-pid="${esc(p.id)}" title="Remove a cow">−</button>
+        <button class="mini" data-act="plus" data-pid="${esc(p.id)}" title="Add a cow">+</button>
+        <button class="mini ${S.pink === p.id ? 'on' : ''}" data-act="pink" data-pid="${esc(p.id)}" title="Toggle the Pink Cow">pink</button>
+        <button class="mini" data-act="kick" data-pid="${esc(p.id)}" title="Remove player">✕</button>
+      </div>
+    </div>`).join('') : '<p class="sub">Players appear here as they join.</p>';
+
+  // history
+  const hc = $('#historyCard');
+  if (S.history.length) {
+    hc.hidden = false;
+    $('#history').innerHTML = S.history.map(h => `<div class="hrow"><b>R${h.round}</b> ${esc(h.question)}<br><span class="sub">${h.herdText ? `Herd “${esc(h.herdText)}”: ${esc(joinNames(h.cowNames))}` : h.tie ? 'Tie, no cows' : 'No herd'}${h.pinkName ? ` · Pink Cow → ${esc(h.pinkName)}` : ''}</span></div>`).join('');
+  } else hc.hidden = true;
+}
+
+/* --- host event wiring (delegated) --- */
+$('#view-host').addEventListener('click', e => {
+  const S = Host.S; if (!S) return;
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'copyLink') { const link = siteLink(S.code); navigator.clipboard?.writeText(link).then(() => { t.textContent = 'Copied!'; setTimeout(() => t.textContent = 'Copy link', 1500); }).catch(() => { const r = document.createRange(); r.selectNodeContents($('#joinLink')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }); }
+  else if (t.id === 'surpriseBtn') { $('#questionInput').value = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)]; $('#questionInput').focus(); }
+  else if (t.id === 'revealBtn') reveal();
+  else if (t.id === 'cancelRoundBtn') cancelRound();
+  else if (t.id === 'awardBtn') applyAwards();
+  else if (t.id === 'skipScoreBtn' || t.id === 'nextBtn') { S.question = ''; backToLobby(); }
+  else if (t.id === 'resetGroupsBtn') { S.groups = autoGroups(); Host.selectedGroup = -1; commit(); }
+  else if (t.id === 'newGameBtn') newGame();
+  else if (t.id === 'endBtn') { $('#endConfirm').hidden = false; }
+  else if (t.id === 'endNo') { $('#endConfirm').hidden = true; }
+  else if (t.id === 'endYes') { $('#endConfirm').hidden = true; endGame(); }
+  else if (t.dataset.g !== undefined) {
+    const i = Number(t.dataset.g);
+    if (S.scored) return;
+    if (Host.selectedGroup === -1) { Host.selectedGroup = i; renderHost(); }
+    else if (Host.selectedGroup === i) { Host.selectedGroup = -1; renderHost(); }
+    else mergeGroups(Host.selectedGroup, i);
+  }
+  else if (t.dataset.act) {
+    const pid = t.dataset.pid; const p = S.players[pid]; if (!p) return;
+    if (t.dataset.act === 'plus') p.cows += 1;
+    else if (t.dataset.act === 'minus') p.cows = Math.max(0, p.cows - 1);
+    else if (t.dataset.act === 'pink') S.pink = S.pink === pid ? null : pid;
+    else if (t.dataset.act === 'kick') { removePlayer(pid); return; }
+    checkWin(); commit();
+  }
+});
+$('#view-host').addEventListener('submit', e => {
+  const S = Host.S; if (!S) return;
+  if (e.target.id === 'askForm') { e.preventDefault(); askQuestion($('#questionInput').value); }
+  else if (e.target.id === 'hostAnswerForm') {
+    e.preventDefault(); const text = $('#hostAnswer').value.trim().slice(0, 80);
+    if (!S.players[HOST_PID]) return;
+    if (!text) delete S.answers[HOST_PID]; else S.answers[HOST_PID] = { text, at: S.answers[HOST_PID]?.at || Date.now() };
+    commit();
+  }
+});
+$('#view-host').addEventListener('change', e => {
+  const S = Host.S; if (!S) return;
+  if (e.target.id === 'hostPlays') {
+    S.hostPlays = e.target.checked;
+    if (S.hostPlays) { S.hostName = S.hostName || 'Host'; S.players[HOST_PID] = S.players[HOST_PID] || { name: S.hostName, cows: 0, joinedAt: 0 }; }
+    else { delete S.players[HOST_PID]; delete S.answers[HOST_PID]; if (S.pink === HOST_PID) S.pink = null; }
+    checkWin(); commit(); if (S.hostPlays) $('#hostName')?.focus();
+  } else if (e.target.id === 'hostName') {
+    S.hostName = e.target.value.trim().slice(0, 20) || 'Host';
+    if (S.players[HOST_PID]) S.players[HOST_PID].name = S.hostName;
+    commit();
+  }
+});
+$('#view-host').addEventListener('input', e => {
+  const S = Host.S; if (!S) return;
+  if (e.target.id === 'questionInput') { S.draft = e.target.value; hostSave(); }
+});
+// release the room id promptly on refresh/close so a resume can reclaim it
+window.addEventListener('pagehide', () => { try { Host.peer?.destroy(); } catch {} });
+
+/* ====================================================================
+   PLAYER
+   ==================================================================== */
+const P = { code: '', pid: '', name: '', peer: null, conn: null, state: null, status: 'connecting', tries: 0, timer: null, everConnected: false, firstFailAt: 0, draft: '', lastRound: -1 };
+
+async function playerJoin(code, name){
+  P.code = code; P.name = name; P.pid = LS.get('herd-pid', '') || uid(); LS.set('herd-pid', P.pid);
+  LS.set('herd-player', { code, name, at: Date.now() });
+  P.everConnected = false; P.tries = 0; P.state = null; P.firstFailAt = 0;
+  setBand(`<span class="chip">Room <b>${esc(code)}</b></span><span class="chip">${esc(name)}</span><span class="chip" id="pConn"><i class="dot off"></i> Connecting…</span>`);
+  show('player'); renderPlayer();
+  await playerConnect();
+}
+function setStatus(s, label){
+  P.status = s; const c = $('#pConn'); if (!c) return;
+  c.innerHTML = `<i class="dot ${s === 'online' ? '' : s === 'offline' ? 'off' : 'bad'}"></i> ${esc(label || (s === 'online' ? 'Connected' : 'Reconnecting…'))}`;
+}
+async function playerConnect(){
+  clearTimeout(P.timer); P.timer = null;
+  if (!P.peer || P.peer.destroyed) {
+    const opts = await getPeerOptions();
+    const peer = new Peer(undefined, opts); P.peer = peer;
+    peer.on('open', () => dial());
+    peer.on('disconnected', () => { if (P.peer === peer && !peer.destroyed) setTimeout(() => { try { if (peer.disconnected) peer.reconnect(); } catch {} }, 1500); });
+    peer.on('error', err => {
+      console.warn('player peer error', err);
+      if (err.type === 'peer-unavailable') {
+        if (!P.everConnected && P.tries === 0) { playerFail(`Couldn't find room ${P.code}. Check the code with the host and that their game is open.`); }
+        else scheduleRetry();
+      } else if (err.type === 'browser-incompatible') {
+        playerFail('This browser cannot connect (no WebRTC). Try Chrome, Edge, Safari or Firefox.');
+      } else if (err.type !== 'unavailable-id') scheduleRetry();
+    });
+    return;
+  }
+  if (P.peer.disconnected) { try { P.peer.reconnect(); } catch { scheduleRetry(); } return; }
+  dial();
+}
+function dial(){
+  if (P.conn && P.conn.open) return;
+  if (P.conn) { try { P.conn.close(); } catch {} }
+  const c = P.peer.connect(PREFIX + P.code, { reliable: true, serialization: 'json', metadata: { pid: P.pid, name: P.name } });
+  if (!c) { scheduleRetry(); return; }
+  P.conn = c;
+  c.on('open', () => { if (P.conn !== c) return; P.tries = 0; P.everConnected = true; P.firstFailAt = 0; setStatus('online'); c.send({ t: 'hello', pid: P.pid, name: P.name }); if (P.state) renderPlayer(); });
+  c.on('data', msg => { if (P.conn === c) onHostMessage(msg); });
+  c.on('close', () => { if (P.conn !== c) return; setStatus('offline'); scheduleRetry(); });
+  c.on('error', e => console.warn('player conn error', e));
+  setTimeout(() => { if (P.conn === c && !c.open) { try { c.close(); } catch {} scheduleRetry(); } }, 12000);
+}
+function scheduleRetry(){
+  if (P.timer || !views.player || views.player.hidden) return;
+  if (!P.firstFailAt) P.firstFailAt = Date.now();
+  const delay = Math.min(1500 * Math.pow(1.6, P.tries), 10000); P.tries += 1;
+  const waited = Date.now() - P.firstFailAt;
+  setStatus('offline', waited > 90000 ? 'Host unreachable, still trying…' : 'Reconnecting…');
+  if (waited > 90000 && P.state) renderPlayer();
+  P.timer = setTimeout(() => { P.timer = null; playerConnect(); }, delay);
+}
+function playerFail(text){
+  playerLeave(false);
+  const m = $('#joinMsg'); m.textContent = text; m.hidden = false;
+}
+function playerLeave(clear = true){
+  clearTimeout(P.timer); P.timer = null;
+  try { P.conn?.close(); } catch {} try { P.peer?.destroy(); } catch {}
+  P.conn = null; P.peer = null; P.state = null;
+  if (clear) LS.del('herd-player');
+  setBand(''); show('home'); renderHome();
+}
+function onHostMessage(msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'state') {
+    if (msg.round !== P.lastRound) { P.draft = ''; P.lastRound = msg.round; }
+    P.state = msg; renderPlayer();
+  } else if (msg.t === 'removed') { playerLeave(true); const m = $('#joinMsg'); m.textContent = 'The host removed you from the room.'; m.hidden = false; }
+  else if (msg.t === 'ended') { playerLeave(true); const m = $('#joinMsg'); m.className = 'msg ok'; m.textContent = 'The host ended the game. Thanks for playing!'; m.hidden = false; }
+}
+function sendAnswer(text){
+  const s = P.state; if (!s || s.phase !== 'answering') return;
+  text = String(text || '').trim().slice(0, 80); if (!text) return;
+  if (P.conn && P.conn.open) { P.conn.send({ t: 'answer', round: s.round, text }); P.state.you.answered = true; P.state.you.answer = text; P.draft = ''; renderPlayer(); }
+  else { setStatus('offline'); scheduleRetry(); }
+}
+
+function renderPlayer(){
+  const main = $('#playerMain'); const s = P.state;
+  const stale = P.status !== 'online';
+  if (!s) {
+    main.innerHTML = `<div class="card stack"><div class="eyebrow">Room ${esc(P.code)}</div><h2>${stale && P.firstFailAt && Date.now() - P.firstFailAt > 90000 ? "Can't reach the host" : 'Finding the paddock…'}</h2><p class="sub">${stale && P.firstFailAt && Date.now() - P.firstFailAt > 90000 ? 'Make sure the host still has the game open, then wait or try again.' : 'Connecting you to the host\'s screen. This usually takes a few seconds.'}</p><div class="row"><button class="btn ghost" type="button" id="retryNow">Try again now</button><button class="btn ghost" type="button" id="leaveBtn">Leave</button></div></div>`;
+    return;
+  }
+  const me = s.you; const names = Object.fromEntries(s.players.map(p => [p.id, p.name]));
+  const others = s.players.filter(p => p.id !== me.id);
+  let html = '';
+  if (s.winner && names[s.winner]) {
+    html += `<div class="banner"><div class="eyebrow" style="color:#fff;opacity:.9">Game over</div><h2>🏆 ${s.winner === me.id ? 'You win!' : esc(names[s.winner]) + ' wins!'}</h2><p>${s.winner === me.id ? 'You thought like the herd.' : 'The host may keep going for fun.'}</p></div>`;
+  }
+  if (s.phase === 'lobby') {
+    html += `<div class="card stack">
+      <div class="eyebrow">${s.round === 0 ? "You're in the paddock" : 'Round ' + s.round + ' done'}</div>
+      <h2>${s.round === 0 ? 'Waiting for the first question…' : 'Waiting for the next question…'}</h2>
+      <p class="sub">${s.players.length} in the herd: ${esc(joinNames(s.players.map(p => p.id === me.id ? 'you' : p.name)))}.</p>
+      ${stale ? '<div class="msg warn">Reconnecting to the host…</div>' : ''}
+    </div>`;
+  } else if (s.phase === 'answering') {
+    const answered = s.players.filter(p => p.answered).length;
+    const waitingFor = s.players.filter(p => !p.answered && p.id !== me.id).map(p => p.name);
+    html += `<div class="card stack">
+      <div class="eyebrow">Round ${s.round}</div>
+      <div class="question">${esc(s.question)}</div>
+      ${me.answered ? `
+        <div class="sent"><div class="eyebrow" style="color:var(--grass-deep)">Your answer is in</div><div class="ans">${esc(me.answer)}</div>
+          <p class="sub">${waitingFor.length ? `Waiting for ${esc(joinNames(waitingFor))}.` : 'Everyone has answered. Waiting for the host to reveal.'}</p></div>
+        <form id="answerForm" class="row"><input type="text" id="answerInput" class="grow" maxlength="80" placeholder="Change your answer" value="${esc(P.draft)}" autocomplete="off"><button class="btn ghost" type="submit">Change</button></form>`
+      : `<form id="answerForm" class="stack"><input type="text" id="answerInput" class="answer-input" maxlength="80" placeholder="Type what the herd would say…" value="${esc(P.draft)}" autocomplete="off" required><button class="btn pink big" type="submit">Send my answer</button></form>
+         <p class="sub">${answered} of ${s.players.length} answered so far.</p>`}
+      ${stale ? '<div class="msg warn">Reconnecting to the host… your answer will send once you\'re back.</div>' : ''}
+    </div>`;
+  } else if (s.phase === 'reveal') {
+    const aw = s.awards; const max = s.groups.length ? Math.max(...s.groups.map(g => g.pids.length)) : 0;
+    const gotCow = s.scored && aw && aw.cowPids.includes(me.id);
+    const gotPink = s.scored && aw && aw.lonely === me.id;
+    html += `<div class="card stack">
+      <div class="eyebrow">Round ${s.round} · ${s.scored ? 'scored' : 'the reveal'}</div>
+      <div class="question">${esc(s.question)}</div>
+      ${s.scored ? (gotCow ? '<div class="msg ok">🐄 You were part of the herd. +1 cow!</div>' : gotPink ? '<div class="msg pink">🐄 You were the odd one out. The Pink Cow is yours.</div>' : aw && aw.tie ? '<div class="msg warn">Tie for biggest herd, so no cows this round.</div>' : '<div class="msg warn">No cow for you this round.</div>') : '<p class="sub">The host is scoring…</p>'}
+      <div class="groups">${s.groups.map(g => {
+        const herd = s.scored ? (aw && aw.herdText !== null && g.text === aw.herdText && g.pids.length === max) : (g.pids.length === max && max >= 2 && s.groups.filter(x => x.pids.length === max).length === 1);
+        const lonely = s.scored ? (aw && aw.lonely && g.pids.length === 1 && g.pids[0] === aw.lonely) : false;
+        const mine = g.pids.includes(me.id);
+        return `<div class="group static ${herd ? 'herd' : ''} ${lonely ? 'lonely' : ''} ${mine ? 'mine' : ''}"><span class="count">${g.pids.length}</span><div class="ans">${esc(g.text)}</div><div class="who">${esc(joinNames(g.pids.map(p => p === me.id ? 'you' : (names[p] || '?'))))}</div>${herd ? '<div class="tag">The herd</div>' : lonely ? '<div class="tag">Odd one out</div>' : ''}</div>`;
+      }).join('') || '<p class="sub">No answers came in.</p>'}</div>
+    </div>`;
+  }
+  // scoreboard
+  html += `<div class="card stack">
+    <div class="row" style="justify-content:space-between"><h2 style="font-size:1.15rem">Paddock</h2><span class="target">First to ${s.target} wins</span></div>
+    <div class="score">${[...s.players].sort((a, b) => b.cows - a.cows).map(p => `<div class="srow ${p.id === me.id ? 'me' : ''} ${s.winner === p.id ? 'winner' : ''}"><div class="nm"><i class="dot ${p.online ? '' : 'off'}"></i><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span>${s.pink === p.id ? '<span class="pinkbadge">🐄 pink</span>' : ''}</div><div class="cows"><span class="glyphs" aria-hidden="true">${cowGlyphs(p.cows)}</span><span>${p.cows}</span></div></div>`).join('')}</div>
+    <div class="row"><button class="btn ghost sm" type="button" id="leaveBtn">Leave room</button></div>
+  </div>`;
+  main.innerHTML = html;
+  const inp = $('#answerInput'); if (inp && !me.answered && document.activeElement?.tagName !== 'INPUT') { /* don't steal focus on phones unless needed */ }
+}
+$('#view-player').addEventListener('submit', e => {
+  if (e.target.id === 'answerForm') { e.preventDefault(); sendAnswer($('#answerInput').value); }
+});
+$('#view-player').addEventListener('input', e => { if (e.target.id === 'answerInput') P.draft = e.target.value; });
+$('#view-player').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'leaveBtn') playerLeave(true);
+  else if (t.id === 'retryNow') { P.tries = 0; clearTimeout(P.timer); P.timer = null; playerConnect(); }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !views.player.hidden && P.code && !(P.conn && P.conn.open)) { clearTimeout(P.timer); P.timer = null; P.tries = Math.min(P.tries, 1); playerConnect(); }
+});
+
+/* ====================================================================
+   HOME
+   ==================================================================== */
+function renderHome(){
+  const saved = LS.get('herd-host-state', null);
+  const rb = $('#resumeBox');
+  if (saved && saved.code) { rb.hidden = false; $('#resumeCode').textContent = saved.code; } else rb.hidden = true;
+  if (!$('#hostCode').value) $('#hostCode').value = randomCode();
+  const params = new URLSearchParams(location.search); const pc = cleanCode(params.get('code'));
+  const lastPlayer = LS.get('herd-player', null);
+  if (pc) $('#joinCode').value = pc; else if (lastPlayer?.code && !$('#joinCode').value) $('#joinCode').value = lastPlayer.code;
+  if (lastPlayer?.name && !$('#joinName').value) $('#joinName').value = lastPlayer.name;
+  if (pc) { $('#rulesHome').open = false; setTimeout(() => $('#joinName').focus(), 50); }
+}
+$('#shuffleCode').addEventListener('click', () => { $('#hostCode').value = randomCode(); $('#hostMsg').hidden = true; });
+$('#hostForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('#hostMsg').hidden = true;
+  const code = cleanCode($('#hostCode').value); if (code.length < 3) return;
+  const saved = LS.get('herd-host-state', null);
+  Host.S = (saved && saved.code === code) ? saved : freshState(code);
+  Host.conns.clear(); Host.online.clear(); Host.resumeStart = 0;
+  $('#hostBtn').disabled = true; $('#hostBtn').textContent = 'Opening…';
+  try { await hostStart(code, !!(saved && saved.code === code)); } finally { $('#hostBtn').disabled = false; $('#hostBtn').textContent = 'Open the paddock'; }
+});
+$('#resumeBtn').addEventListener('click', async () => {
+  const saved = LS.get('herd-host-state', null); if (!saved) return;
+  Host.S = saved; Host.conns.clear(); Host.online.clear(); Host.resumeStart = 0; $('#hostMsg').hidden = true;
+  await hostStart(saved.code, true);
+});
+$('#joinForm').addEventListener('submit', async e => {
+  e.preventDefault(); const m = $('#joinMsg'); m.hidden = true; m.className = 'msg bad';
+  const code = cleanCode($('#joinCode').value); const name = $('#joinName').value.trim().slice(0, 20);
+  if (code.length < 3 || !name) return;
+  if (typeof Peer === 'undefined') { m.textContent = 'The connection library did not load. Check your internet connection and refresh.'; m.hidden = false; return; }
+  P.lastRound = -1; await playerJoin(code, name);
+});
+for (const id of ['hostCode', 'joinCode']) $('#' + id).addEventListener('input', e => { const v = cleanCode(e.target.value); if (e.target.value !== v) e.target.value = v; });
+
+renderHome();
+if (typeof Peer === 'undefined') { const m = $('#hostMsg'); m.textContent = 'The connection library (PeerJS) did not load. Check your internet connection and refresh.'; m.hidden = false; }
+})();
+</script>
+</body>
+</html>
