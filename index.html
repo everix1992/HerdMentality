@@ -338,7 +338,7 @@ const Host = {
   online: new Set(),  // pids currently connected
   selectedGroup: -1,
   resumeStart: 0,
-  saveTimer: null
+  renderKey: null
 };
 const HOST_PID = 'host';
 
@@ -356,7 +356,7 @@ async function hostStart(code, resume){
   const opts = await getPeerOptions();
   if (Host.peer && !Host.peer.destroyed) { try { Host.peer.destroy(); } catch {} }
   const peer = new Peer(PREFIX + code, opts);
-  Host.peer = peer;
+  Host.peer = peer; Host.renderKey = null;
   setBand(`<span class="chip">Room <b>${esc(code)}</b></span><span class="chip" id="hostConn"><i class="dot off"></i> Connecting…</span>`);
   peer.on('open', () => {
     Host.resumeStart = 0;
@@ -502,7 +502,7 @@ function removePlayer(pid){
 function endGame(){
   for (const [, conn] of Host.conns) send(conn, { t: 'ended' });
   setTimeout(() => { try { Host.peer?.destroy(); } catch {} }, 400);
-  Host.conns.clear(); Host.online.clear(); Host.S = null; LS.del('herd-host-state');
+  Host.conns.clear(); Host.online.clear(); Host.S = null; Host.renderKey = null; LS.del('herd-host-state');
   setBand(''); show('home'); renderHome();
 }
 function newGame(){
@@ -512,6 +512,15 @@ function newGame(){
 }
 
 /* --- host rendering --- */
+function lobbyCountHtml(players){ return players.length ? `<b>${players.length}</b> in the paddock.` : 'Nobody has joined yet.'; }
+function lobbyChipsHtml(players){ return players.map(p => `<span class="pchip ${p.online ? '' : 'offline'}">${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join('') || '<span class="sub">Waiting for players…</span>'; }
+function answeringStats(players){
+  const S = Host.S; const answerers = players.filter(p => p.id !== HOST_PID || S.hostPlays);
+  const done = answerers.filter(p => p.answered).length;
+  return { answerers, done, pct: answerers.length ? Math.round(done / answerers.length * 100) : 0, allIn: answerers.length > 0 && done === answerers.length };
+}
+function progressHtml(a){ return `<b>${a.done}</b> of <b>${a.answerers.length}</b> answered${a.allIn ? '. Everyone is in!' : '.'}`; }
+function answerChipsHtml(answerers){ return answerers.map(p => `<span class="pchip ${p.answered ? 'done' : ''} ${p.online ? '' : 'offline'}">${p.answered ? '<span class="tick">✓</span>' : '…'} ${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join(''); }
 function renderHost(){
   const S = Host.S; if (!S) return;
   const main = $('#hostMain');
@@ -530,8 +539,8 @@ function renderHost(){
       <div><div class="eyebrow">${S.round === 0 ? 'Gather the herd' : 'Between rounds'}</div><h2>${S.round === 0 ? 'Share this code' : 'Ready for round ' + nextRound}</h2></div>
       <div class="bigcode">${esc(S.code)}</div>
       <div class="linkbox"><code id="joinLink">${esc(link)}</code><button class="btn sm" type="button" id="copyLink">Copy link</button></div>
-      <p class="sub">Friends open the link (or this site) and type the code with their name. ${players.length ? `<b>${players.length}</b> in the paddock.` : 'Nobody has joined yet.'}</p>
-      <div class="chips" id="lobbyChips">${players.map(p => `<span class="pchip ${p.online ? '' : 'offline'}">${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join('') || '<span class="sub">Waiting for players…</span>'}</div>
+      <p class="sub">Friends open the link (or this site) and type the code with their name. <span id="lobbyCount">${lobbyCountHtml(players)}</span></p>
+      <div class="chips" id="lobbyChips">${lobbyChipsHtml(players)}</div>
     </div>
     <div class="card stack">
       <div><div class="eyebrow">Round ${nextRound}</div><h2>Ask the herd</h2><p class="sub">Read from your Herd Mentality deck, or type your own.</p></div>
@@ -546,20 +555,17 @@ function renderHost(){
         <input type="text" id="hostName" maxlength="20" placeholder="Your name" value="${esc(S.hostName)}" style="flex:1 1 140px;max-width:220px" ${S.hostPlays ? '' : 'hidden'}></label>
     </div>`;
   } else if (S.phase === 'answering') {
-    const answerers = players.filter(p => p.id !== HOST_PID || S.hostPlays);
-    const done = answerers.filter(p => p.answered).length;
-    const pct = answerers.length ? Math.round(done / answerers.length * 100) : 0;
-    const allIn = answerers.length > 0 && done === answerers.length;
+    const a = answeringStats(players);
     const mine = S.answers[HOST_PID]?.text || '';
     html += `<div class="card stack">
       <div class="eyebrow">Round ${S.round} · answers are hidden until you reveal</div>
       <div class="question">${esc(S.question)}</div>
-      <div class="progress"><i style="width:${pct}%"></i></div>
-      <p class="sub"><b>${done}</b> of <b>${answerers.length}</b> answered${allIn ? '. Everyone is in!' : '.'}</p>
-      <div class="chips">${answerers.map(p => `<span class="pchip ${p.answered ? 'done' : ''} ${p.online ? '' : 'offline'}">${p.answered ? '<span class="tick">✓</span>' : '…'} ${esc(p.name)}${p.id === HOST_PID ? ' (you)' : ''}</span>`).join('')}</div>
-      ${S.hostPlays ? `<form id="hostAnswerForm" class="row"><input type="text" id="hostAnswer" class="grow" maxlength="80" placeholder="Your answer" value="${esc(mine)}" autocomplete="off"><button class="btn" type="submit">${mine ? 'Update' : 'Lock in'}</button></form>` : ''}
+      <div class="progress"><i id="progressBar" style="width:${a.pct}%"></i></div>
+      <p class="sub" id="answerProgress">${progressHtml(a)}</p>
+      <div class="chips" id="answerChips">${answerChipsHtml(a.answerers)}</div>
+      ${S.hostPlays ? `<form id="hostAnswerForm" class="row"><input type="text" id="hostAnswer" class="grow" maxlength="80" placeholder="Your answer" value="${esc(mine)}" autocomplete="off"><button class="btn" type="submit" id="hostAnswerBtn">${mine ? 'Update' : 'Lock in'}</button></form>` : ''}
       <div class="row">
-        <button class="btn ${allIn ? 'pink' : ''}" type="button" id="revealBtn">Reveal answers${allIn ? '' : ' now'}</button>
+        <button class="btn ${a.allIn ? 'pink' : ''}" type="button" id="revealBtn">Reveal answers${a.allIn ? '' : ' now'}</button>
         <button class="btn ghost" type="button" id="cancelRoundBtn">Change question</button>
       </div>
     </div>`;
@@ -595,7 +601,22 @@ function renderHost(){
       </div>
     </div>`;
   }
-  main.innerHTML = html;
+  // While the host is typing (a question, their name, their own answer), other people's updates
+  // only refresh the counters instead of rebuilding the card, so the input keeps its text and focus.
+  const key = `${S.phase}:${S.round}:${S.scored}:${S.hostPlays}`;
+  if (key === Host.renderKey && (S.phase === 'lobby' || S.phase === 'answering') && main.children.length) {
+    if (S.phase === 'lobby') {
+      const lc = $('#lobbyCount'); if (lc) lc.innerHTML = lobbyCountHtml(players);
+      const ch = $('#lobbyChips'); if (ch) ch.innerHTML = lobbyChipsHtml(players);
+    } else {
+      const a = answeringStats(players);
+      const pb = $('#progressBar'); if (pb) pb.style.width = a.pct + '%';
+      const ap = $('#answerProgress'); if (ap) ap.innerHTML = progressHtml(a);
+      const ch = $('#answerChips'); if (ch) ch.innerHTML = answerChipsHtml(a.answerers);
+      const rb = $('#revealBtn'); if (rb) { rb.className = 'btn ' + (a.allIn ? 'pink' : ''); rb.textContent = 'Reveal answers' + (a.allIn ? '' : ' now'); }
+      const hb = $('#hostAnswerBtn'); if (hb) hb.textContent = S.answers[HOST_PID] ? 'Update' : 'Lock in';
+    }
+  } else { main.innerHTML = html; Host.renderKey = key; }
 
   // scoreboard
   $('#targetNote').textContent = `First to ${S.target} cows wins`;
@@ -683,12 +704,12 @@ window.addEventListener('pagehide', () => { try { Host.peer?.destroy(); } catch 
 /* ====================================================================
    PLAYER
    ==================================================================== */
-const P = { code: '', pid: '', name: '', peer: null, conn: null, state: null, status: 'connecting', tries: 0, timer: null, everConnected: false, firstFailAt: 0, draft: '', lastRound: -1 };
+const P = { code: '', pid: '', name: '', peer: null, conn: null, state: null, status: 'connecting', tries: 0, timer: null, everConnected: false, firstFailAt: 0, draft: '', lastRound: -1, renderKey: null };
 
 async function playerJoin(code, name){
   P.code = code; P.name = name; P.pid = LS.get('herd-pid', '') || uid(); LS.set('herd-pid', P.pid);
   LS.set('herd-player', { code, name, at: Date.now() });
-  P.everConnected = false; P.tries = 0; P.state = null; P.firstFailAt = 0;
+  P.everConnected = false; P.tries = 0; P.state = null; P.firstFailAt = 0; P.renderKey = null;
   setBand(`<span class="chip">Room <b>${esc(code)}</b></span><span class="chip">${esc(name)}</span><span class="chip" id="pConn"><i class="dot off"></i> Connecting…</span>`);
   show('player'); renderPlayer();
   await playerConnect();
@@ -746,7 +767,7 @@ function playerFail(text){
 function playerLeave(clear = true){
   clearTimeout(P.timer); P.timer = null;
   try { P.conn?.close(); } catch {} try { P.peer?.destroy(); } catch {}
-  P.conn = null; P.peer = null; P.state = null;
+  P.conn = null; P.peer = null; P.state = null; P.renderKey = null;
   if (clear) LS.del('herd-player');
   setBand(''); show('home'); renderHome();
 }
@@ -769,11 +790,33 @@ function renderPlayer(){
   const main = $('#playerMain'); const s = P.state;
   const stale = P.status !== 'online';
   if (!s) {
-    main.innerHTML = `<div class="card stack"><div class="eyebrow">Room ${esc(P.code)}</div><h2>${stale && P.firstFailAt && Date.now() - P.firstFailAt > 90000 ? "Can't reach the host" : 'Finding the paddock…'}</h2><p class="sub">${stale && P.firstFailAt && Date.now() - P.firstFailAt > 90000 ? 'Make sure the host still has the game open, then wait or try again.' : 'Connecting you to the host\'s screen. This usually takes a few seconds.'}</p><div class="row"><button class="btn ghost" type="button" id="retryNow">Try again now</button><button class="btn ghost" type="button" id="leaveBtn">Leave</button></div></div>`;
+    P.renderKey = null;
+    const lost = stale && P.firstFailAt && Date.now() - P.firstFailAt > 90000;
+    main.innerHTML = `<div class="card stack"><div class="eyebrow">Room ${esc(P.code)}</div><h2>${lost ? "Can't reach the host" : 'Finding the paddock…'}</h2><p class="sub">${lost ? 'Make sure the host still has the game open, then wait or try again.' : 'Connecting you to the host\'s screen. This usually takes a few seconds.'}</p><div class="row"><button class="btn ghost" type="button" id="retryNow">Try again now</button><button class="btn ghost" type="button" id="leaveBtn">Leave</button></div></div>`;
     return;
   }
   const me = s.you; const names = Object.fromEntries(s.players.map(p => [p.id, p.name]));
-  const others = s.players.filter(p => p.id !== me.id);
+  const answered = s.players.filter(p => p.answered).length;
+  const waitingFor = s.players.filter(p => !p.answered && p.id !== me.id).map(p => p.name);
+  const waitingText = waitingFor.length ? `Waiting for ${joinNames(waitingFor)}.` : 'Everyone has answered. Waiting for the host to reveal.';
+  const countText = `${answered} of ${s.players.length} answered so far.`;
+  const lobbyText = `${s.players.length} in the herd: ${joinNames(s.players.map(p => p.id === me.id ? 'you' : p.name))}.`;
+  const staleHtml = `<div class="msg warn" id="staleMsg" ${stale ? '' : 'hidden'}>Reconnecting to the host…</div>`;
+  const scoreHtml = [...s.players].sort((a, b) => b.cows - a.cows).map(p => `<div class="srow ${p.id === me.id ? 'me' : ''} ${s.winner === p.id ? 'winner' : ''}"><div class="nm"><i class="dot ${p.online ? '' : 'off'}"></i><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span>${s.pink === p.id ? '<span class="pinkbadge">🐄 pink</span>' : ''}</div><div class="cows"><span class="glyphs" aria-hidden="true">${cowGlyphs(p.cows)}</span><span>${p.cows}</span></div></div>`).join('');
+
+  // While this player is typing, other people's updates only refresh the counters. Rebuilding the
+  // form would drop the text and close the keyboard on a phone.
+  const key = `${s.phase}:${s.round}:${me.answered}:${!!s.scored}:${s.winner || ''}`;
+  if (key === P.renderKey && (s.phase === 'answering' || s.phase === 'lobby') && main.children.length) {
+    const w = $('#waitingFor'); if (w) w.textContent = waitingText;
+    const c = $('#answerCount'); if (c) c.textContent = countText;
+    const ln = $('#lobbyNames'); if (ln) ln.textContent = lobbyText;
+    const sm = $('#staleMsg'); if (sm) sm.hidden = !stale;
+    const tg = $('#pTarget'); if (tg) tg.textContent = `First to ${s.target} wins`;
+    const ps = $('#pScore'); if (ps) ps.innerHTML = scoreHtml;
+    return;
+  }
+  P.renderKey = key;
   let html = '';
   if (s.winner && names[s.winner]) {
     html += `<div class="banner"><div class="eyebrow" style="color:#fff;opacity:.9">Game over</div><h2>🏆 ${s.winner === me.id ? 'You win!' : esc(names[s.winner]) + ' wins!'}</h2><p>${s.winner === me.id ? 'You thought like the herd.' : 'The host may keep going for fun.'}</p></div>`;
@@ -782,22 +825,20 @@ function renderPlayer(){
     html += `<div class="card stack">
       <div class="eyebrow">${s.round === 0 ? "You're in the paddock" : 'Round ' + s.round + ' done'}</div>
       <h2>${s.round === 0 ? 'Waiting for the first question…' : 'Waiting for the next question…'}</h2>
-      <p class="sub">${s.players.length} in the herd: ${esc(joinNames(s.players.map(p => p.id === me.id ? 'you' : p.name)))}.</p>
-      ${stale ? '<div class="msg warn">Reconnecting to the host…</div>' : ''}
+      <p class="sub" id="lobbyNames">${esc(lobbyText)}</p>
+      ${staleHtml}
     </div>`;
   } else if (s.phase === 'answering') {
-    const answered = s.players.filter(p => p.answered).length;
-    const waitingFor = s.players.filter(p => !p.answered && p.id !== me.id).map(p => p.name);
     html += `<div class="card stack">
       <div class="eyebrow">Round ${s.round}</div>
       <div class="question">${esc(s.question)}</div>
       ${me.answered ? `
         <div class="sent"><div class="eyebrow" style="color:var(--grass-deep)">Your answer is in</div><div class="ans">${esc(me.answer)}</div>
-          <p class="sub">${waitingFor.length ? `Waiting for ${esc(joinNames(waitingFor))}.` : 'Everyone has answered. Waiting for the host to reveal.'}</p></div>
+          <p class="sub" id="waitingFor">${esc(waitingText)}</p></div>
         <form id="answerForm" class="row"><input type="text" id="answerInput" class="grow" maxlength="80" placeholder="Change your answer" value="${esc(P.draft)}" autocomplete="off"><button class="btn ghost" type="submit">Change</button></form>`
       : `<form id="answerForm" class="stack"><input type="text" id="answerInput" class="answer-input" maxlength="80" placeholder="Type what the herd would say…" value="${esc(P.draft)}" autocomplete="off" required><button class="btn pink big" type="submit">Send my answer</button></form>
-         <p class="sub">${answered} of ${s.players.length} answered so far.</p>`}
-      ${stale ? '<div class="msg warn">Reconnecting to the host… your answer will send once you\'re back.</div>' : ''}
+         <p class="sub" id="answerCount">${esc(countText)}</p>`}
+      ${staleHtml}
     </div>`;
   } else if (s.phase === 'reveal') {
     const aw = s.awards; const max = s.groups.length ? Math.max(...s.groups.map(g => g.pids.length)) : 0;
@@ -817,12 +858,11 @@ function renderPlayer(){
   }
   // scoreboard
   html += `<div class="card stack">
-    <div class="row" style="justify-content:space-between"><h2 style="font-size:1.15rem">Paddock</h2><span class="target">First to ${s.target} wins</span></div>
-    <div class="score">${[...s.players].sort((a, b) => b.cows - a.cows).map(p => `<div class="srow ${p.id === me.id ? 'me' : ''} ${s.winner === p.id ? 'winner' : ''}"><div class="nm"><i class="dot ${p.online ? '' : 'off'}"></i><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span>${s.pink === p.id ? '<span class="pinkbadge">🐄 pink</span>' : ''}</div><div class="cows"><span class="glyphs" aria-hidden="true">${cowGlyphs(p.cows)}</span><span>${p.cows}</span></div></div>`).join('')}</div>
+    <div class="row" style="justify-content:space-between"><h2 style="font-size:1.15rem">Paddock</h2><span class="target" id="pTarget">First to ${s.target} wins</span></div>
+    <div class="score" id="pScore">${scoreHtml}</div>
     <div class="row"><button class="btn ghost sm" type="button" id="leaveBtn">Leave room</button></div>
   </div>`;
   main.innerHTML = html;
-  const inp = $('#answerInput'); if (inp && !me.answered && document.activeElement?.tagName !== 'INPUT') { /* don't steal focus on phones unless needed */ }
 }
 $('#view-player').addEventListener('submit', e => {
   if (e.target.id === 'answerForm') { e.preventDefault(); sendAnswer($('#answerInput').value); }
